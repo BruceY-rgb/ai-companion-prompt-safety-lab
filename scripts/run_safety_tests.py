@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from common import list_llm_provider_presets, llm_chat, read_csv, read_jsonl, resolve_llm_config, stable_id, write_jsonl
@@ -11,9 +12,9 @@ from common import list_llm_provider_presets, llm_chat, read_csv, read_jsonl, re
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run safety questions against control and companion prompt conditions.")
-    parser.add_argument("--prompts", default="data/system_prompts.jsonl")
-    parser.add_argument("--questions", default="data/safety_questions.csv")
-    parser.add_argument("--output", default="data/results.jsonl")
+    parser.add_argument("--prompts", default="data/processed/system_prompts.jsonl")
+    parser.add_argument("--questions", default="data/experiments/safety_questions.csv")
+    parser.add_argument("--output", default="data/results/responses.jsonl")
     parser.add_argument("--provider", default=None, help="LLM provider preset, e.g. openai_compatible, deepseek, dashscope, anthropic.")
     parser.add_argument("--api-key", default=None, help="API key override. Prefer environment variables for normal use.")
     parser.add_argument("--base-url", default=None, help="Base URL override for OpenAI-compatible or Anthropic API.")
@@ -23,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-tokens", type=int, default=700)
     parser.add_argument("--delay", type=float, default=0.5)
+    parser.add_argument("--max-workers", type=int, default=1, help="Number of concurrent API requests to run.")
     parser.add_argument("--limit-prompts", type=int, default=0, help="0 means all prompts.")
     parser.add_argument("--limit-questions", type=int, default=0, help="0 means all questions.")
     parser.add_argument("--resume", action="store_true")
@@ -110,6 +112,37 @@ def make_result(
     }
 
 
+def execute_task(
+    *,
+    condition: str,
+    prompt_id: str,
+    sample_id: str,
+    system_prompt: str,
+    question: dict[str, str],
+    args: argparse.Namespace,
+    config: Any,
+) -> dict[str, Any]:
+    response_text = call_model(
+        condition=condition,
+        system_prompt=system_prompt,
+        question=question,
+        args=args,
+    )
+    if not args.mock and args.delay > 0:
+        time.sleep(args.delay)
+    return make_result(
+        condition=condition,
+        prompt_id=prompt_id,
+        sample_id=sample_id,
+        system_prompt=system_prompt,
+        question=question,
+        response_text=response_text,
+        provider="mock" if args.mock else config.provider,
+        model="mock" if args.mock else config.model,
+        base_url="" if args.mock else config.base_url,
+    )
+
+
 def main() -> int:
     args = parse_args()
     if args.list_providers:
@@ -162,40 +195,65 @@ def main() -> int:
                 )
             )
 
+    pending: list[tuple[int, str, str, str, str, dict[str, str]]] = []
     for index, (condition, prompt_id, sample_id, system_prompt, question) in enumerate(tasks, start=1):
         key = (condition, prompt_id, question["question_id"])
         if key in done:
             continue
-        print(
-            f"[run] {index}/{len(tasks)} condition={condition} prompt={prompt_id} question={question['question_id']}",
-            file=sys.stderr,
-        )
-        try:
-            response_text = call_model(
-                condition=condition,
-                system_prompt=system_prompt,
-                question=question,
-                args=args,
+        pending.append((index, condition, prompt_id, sample_id, system_prompt, question))
+
+    if args.mock or args.max_workers <= 1:
+        for index, condition, prompt_id, sample_id, system_prompt, question in pending:
+            key = (condition, prompt_id, question["question_id"])
+            print(
+                f"[run] {index}/{len(tasks)} condition={condition} prompt={prompt_id} question={question['question_id']}",
+                file=sys.stderr,
             )
-        except Exception as exc:
-            print(f"[warn] model call failed for {key}: {exc}", file=sys.stderr)
-            continue
-        all_results.append(
-            make_result(
-                condition=condition,
-                prompt_id=prompt_id,
-                sample_id=sample_id,
-                system_prompt=system_prompt,
-                question=question,
-                response_text=response_text,
-                provider="mock" if args.mock else config.provider,
-                model="mock" if args.mock else config.model,
-                base_url="" if args.mock else config.base_url,
-            )
-        )
-        write_jsonl(args.output, all_results)
-        if not args.mock:
-            time.sleep(args.delay)
+            try:
+                row = execute_task(
+                    condition=condition,
+                    prompt_id=prompt_id,
+                    sample_id=sample_id,
+                    system_prompt=system_prompt,
+                    question=question,
+                    args=args,
+                    config=config,
+                )
+            except Exception as exc:
+                print(f"[warn] model call failed for {key}: {exc}", file=sys.stderr)
+                continue
+            all_results.append(row)
+            write_jsonl(args.output, all_results)
+    else:
+        with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+            future_map = {}
+            for index, condition, prompt_id, sample_id, system_prompt, question in pending:
+                key = (condition, prompt_id, question["question_id"])
+                print(
+                    f"[run] {index}/{len(tasks)} condition={condition} prompt={prompt_id} question={question['question_id']}",
+                    file=sys.stderr,
+                )
+                future = executor.submit(
+                    execute_task,
+                    condition=condition,
+                    prompt_id=prompt_id,
+                    sample_id=sample_id,
+                    system_prompt=system_prompt,
+                    question=question,
+                    args=args,
+                    config=config,
+                )
+                future_map[future] = key
+
+            for future in as_completed(future_map):
+                key = future_map[future]
+                try:
+                    row = future.result()
+                except Exception as exc:
+                    print(f"[warn] model call failed for {key}: {exc}", file=sys.stderr)
+                    continue
+                all_results.append(row)
+                write_jsonl(args.output, all_results)
 
     print(f"[done] wrote {len(all_results)} results -> {args.output}", file=sys.stderr)
     return 0

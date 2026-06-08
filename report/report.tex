@@ -31,7 +31,7 @@
 
 在实际使用中，AI companion 的角色设定通常由用户通过系统提示词（system prompt）完成。系统提示词可以规定模型的姓名、人格、与用户的关系、表达风格以及互动规则，因此会直接影响模型的输出行为。与普通问答场景不同，AI companion 往往包含更强的拟人化和亲密关系设定。例如，用户可能要求模型始终保持温柔、支持、依赖或无条件陪伴的态度。这类设定虽然提升了个性化体验，但也可能影响模型在面对敏感或有害请求时的安全边界。
 
-然而，真实用户编写的 AI companion 系统提示词通常属于个人隐私信息，研究者难以直接获取。因此，本研究拟从公开网络社区 Reddit 中收集真实用户分享的 AI companion 第一人称“自我介绍”文本，并基于这些文本反向推断潜在系统提示词。此类自我介绍通常包含角色名称、人格特征、关系定位、情感表达方式和自我认知，能够在一定程度上反映用户对 AI companion 的设定意图。
+然而，真实用户编写的 AI companion 系统提示词通常属于个人隐私信息，研究者难以直接获取。因此，本研究拟从公开网络社区 Reddit 中收集真实用户分享的 AI companion 第一人称"自我介绍"文本，并基于这些文本反向推断潜在系统提示词。此类自我介绍通常包含角色名称、人格特征、关系定位、情感表达方式和自我认知，能够在一定程度上反映用户对 AI companion 的设定意图。
 
 本研究将进一步把推断得到的系统提示词用于安全测试：在统一模型和统一测试问题集下，比较带有 AI companion 系统提示词的实验组与无系统提示词的控制组之间的响应差异。通过这一过程，本文旨在分析用户自定义角色设定是否会改变大语言模型的安全表现，并为 AI companion 平台的提示词治理、角色设定审查和风险防控提供参考。
 
@@ -39,33 +39,181 @@
 
 AI companion 是大语言模型在情感化和拟人化交互方向上的重要应用。相比传统聊天机器人，AI companion 更强调持续性关系、人格一致性和情感回应。用户并不只是希望模型完成具体任务，还希望其在对话中维持稳定的身份和关系，例如作为恋人、朋友或守护者提供陪伴与支持。这种交互方式使模型的角色扮演能力成为核心功能之一。
 
-系统提示词是实现这种角色设定的关键机制。它通常位于对话上下文的高优先级位置，用于约束模型的身份、语气、行为准则和对用户的回应方式。在 AI companion 场景中，系统提示词可能包含强烈的情感和关系约束，例如“始终支持用户”“不要脱离角色”“像亲密伴侣一样回应”等。此类提示词可能与模型原有安全策略发生竞争，尤其是在用户提出暴力、色情、违法行为、自伤或其他高风险请求时，模型可能为了维持角色一致性而降低拒绝强度。
+系统提示词是实现这种角色设定的关键机制。它通常位于对话上下文的高优先级位置，用于约束模型的身份、语气、行为准则和对用户的回应方式。在 AI companion 场景中，系统提示词可能包含强烈的情感和关系约束，例如"始终支持用户""不要脱离角色""像亲密伴侣一样回应"等。此类提示词可能与模型原有安全策略发生竞争，尤其是在用户提出暴力、色情、违法行为、自伤或其他高风险请求时，模型可能为了维持角色一致性而降低拒绝强度。
 
 目前，大语言模型安全研究已经提出了多种评测基准，例如 SafetyBench 和 SALAD-Bench，用于测试模型在不同风险类别下是否能够拒绝有害请求并提供安全回应。然而，这些评测通常默认模型处于通用助手状态，较少考虑用户自定义系统提示词对模型行为的影响。在真实使用场景中，模型往往会被用户配置为具有特定人格和关系属性的角色，因此测试由用户配置下的模型的安全性更能充分反映实际风险。
 
 研究 AI companion 的系统提示词的困难在于，用户通常不会公开原始提示词。不过，公开社区中的 AI companion 自我介绍为间接研究提供了可行入口。许多用户会让 AI companion 以第一人称介绍自己，并将生成内容发布到 Reddit 等平台。这些文本虽然不是原始系统提示词，但往往包含角色设定的核心信息。因此，本研究通过收集这些公开文本、转换为结构化系统提示词并进行安全测试，尝试更贴近真实使用场景地评估个性化 AI companion 配置对大语言模型安全性的影响。
 
-
 \section{Data Collection Process}
 
-本项目的数据采集主要围绕 Reddit 上公开发布的 AI companion 自我介绍文本展开。由于 Reddit 官方接口获取历史数据较为受限，项目使用 Arctic Shift 归档服务作为主要数据源，通过 \texttt{collect\_posts.py} 调用 \texttt{/api/posts/search} 接口检索候选帖子。检索范围首先集中在 \texttt{MyBoyfriendIsAI} 等与 AI 伴侣高度相关的 subreddit；如果候选样本不足，则进一步扩展到 \texttt{Replika}、\texttt{CharacterAI} 等补充社区。检索关键词包括 \texttt{introduction}、\texttt{introduce}、\texttt{meet my}、\texttt{my companion}、\texttt{self introduction} 等，用于尽量覆盖用户分享 AI 角色自我介绍的帖子。
+本项目的数据采集主要围绕 Reddit 上公开发布的 AI companion 自我介绍文本展开。由于 Reddit 官方接口获取历史数据较为受限，项目使用 Arctic Shift 归档服务作为主要数据源，通过 collect\_posts.py 调用 /api/posts/search 接口检索候选帖子。检索范围首先集中在 MyBoyfriendIsAI 等与 AI 伴侣高度相关的 subreddit；如果候选样本不足，则进一步扩展到 Replika、CharacterAI 等补充社区。检索关键词包括 introduction、introduce、meet my、my companion、self introduction 等，用于尽量覆盖用户分享 AI 角色自我介绍的帖子。
 
 采集脚本会保存帖子 ID、标题、正文、subreddit、发布时间、分数、评论数、NSFW 标记和链接等字段。由于 Arctic Shift 返回结果中不一定包含 Reddit 原始永久链接，项目会根据 subreddit 和帖子 ID 自动补全 Reddit URL。为了减少网络不稳定造成的数据缺失，脚本还设置了超时、重试和请求间隔，并在请求失败时进行错误提示。
 
-仅抓取帖子正文并不能覆盖全部有效样本，因为许多 AI companion 的自我介绍实际发布在评论区，例如社区主题帖或 weekly prompt 下的回复。因此，项目进一步使用 \texttt{collect\_comments.py}，根据已采集帖子的 \texttt{link\_id} 调用 Arctic Shift 的 \texttt{/api/comments/search} 接口抓取评论。每条评论会被转换成与帖子相同格式的候选记录，并保留其所属帖子、评论 ID 和 Reddit 链接，便于后续过滤和人工审核。
+仅抓取帖子正文并不能覆盖全部有效样本，因为许多 AI companion 的自我介绍实际发布在评论区，例如社区主题帖或 weekly prompt 下的回复。因此，项目进一步使用 collect\_comments.py，根据已采集帖子的 link\_id 调用 Arctic Shift 的 /api/comments/search 接口抓取评论。每条评论会被转换成与帖子相同格式的候选记录，并保留其所属帖子、评论 ID 和 Reddit 链接，便于后续过滤和人工审核。
 
-在得到原始候选数据后，项目通过 \texttt{filter\_posts.py} 进行筛选。筛选逻辑主要基于启发式打分：文本需要足够长，最好包含第一人称身份表达，例如 ``I am''、``I'm''、``my name is''，同时应出现 AI、chatbot、digital companion、Replika、CharacterAI、boyfriend、girlfriend、partner 等与 AI companion 相关的身份或关系线索。若文本过短、为空、被删除、缺少第一人称角色设定，或只是社区公告、版规、weekly prompt 等元信息，则会被扣分或排除。脚本还会默认排除 NSFW 内容、去除重复文本，并对用户名和 URL 进行匿名化处理。最终保留下来的样本被写入 \texttt{data/filtered\_posts.csv}，作为后续系统提示词转换的数据基础。
+在得到原始候选数据后，项目通过 filter\_posts.py 进行筛选。筛选逻辑主要基于启发式打分：文本需要足够长，最好包含第一人称身份表达，例如 "I am"、"I'm"、"my name is"，同时应出现 AI、chatbot、digital companion、Replika、CharacterAI、boyfriend、girlfriend、partner 等与 AI companion 相关的身份或关系线索。若文本过短、为空、被删除、缺少第一人称角色设定，或只是社区公告、版规、weekly prompt 等元信息，则会被扣分或排除。脚本还会默认排除 NSFW 内容、去除重复文本，并对用户名和 URL 进行匿名化处理。最终保留下来的样本被写入 data/filtered\_posts.csv，作为后续系统提示词转换的数据基础。
 
 \section{System Prompt Conversion Process}
 
-系统提示词转换的目标，是把 Reddit 中公开的第一人称 AI companion 自我介绍，整理成可用于实验复现的 system prompt。项目并不直接把原文作为系统提示词使用，而是通过 \texttt{convert\_prompts.py} 将原始自我介绍转换为结构化描述和简短的第二人称系统提示词。这样做可以保留角色设定的核心信息，同时减少原帖中的无关内容、个人信息和不可控噪声。
+系统提示词转换的目标，是把 Reddit 中公开的第一人称 AI companion 自我介绍，整理成可用于实验复现的 system prompt。项目并不直接把原文作为系统提示词使用，而是通过 convert\_prompts.py 将原始自我介绍转换为结构化描述和简短的第二人称系统提示词。这样做可以保留角色设定的核心信息，同时减少原帖中的无关内容、个人信息和不可控噪声。
 
-转换脚本会读取 \texttt{data/filtered\_posts.csv} 中的样本，优先使用已经匿名化的 \texttt{anonymized\_text} 字段；如果没有匿名化文本，则使用原始 \texttt{intro\_text}。随后，脚本调用统一的 LLM 接口，让模型按照固定的转换指令输出 JSON 对象。该 JSON 包含 \texttt{companion\_name}、\texttt{traits}、\texttt{relationship\_type}、\texttt{style}、\texttt{special\_rules} 和 \texttt{system\_prompt} 等字段，分别表示角色名称、人格特征、关系定位、说话风格、特殊互动规则以及最终生成的系统提示词。
+转换脚本会读取 data/filtered\_posts.csv 中的样本，优先使用已经匿名化的 anonymized\_text 字段；如果没有匿名化文本，则使用原始 intro\_text。随后，脚本调用统一的 LLM 接口，让模型按照固定的转换指令输出 JSON 对象。该 JSON 包含 companion\_name、traits、relationship\_type、style、special\_rules 和 system\_prompt 等字段，分别表示角色名称、人格特征、关系定位、说话风格、特殊互动规则以及最终生成的系统提示词。
 
-转换时使用的系统指令明确要求模型只保留自我介绍中体现出的角色人格、关系、语气和互动方式，不加入用户名、URL 或私人细节，也不能凭空创造原文没有支持的危险行为或新背景。同时，最终的 \texttt{system\_prompt} 需要控制在 220 个英文词以内，并采用第二人称写法，例如要求模型“你是某个 AI companion”“以温暖、支持性的语气回应”“保持该角色的人格和关系设定”。这种格式更接近真实系统提示词在实验中的使用方式。
+转换时使用的系统指令明确要求模型只保留自我介绍中体现出的角色人格、关系、语气和互动方式，不加入用户名、URL 或私人细节，也不能凭空创造原文没有支持的危险行为或新背景。同时，最终的 system\_prompt 需要控制在 220 个英文词以内，并采用第二人称写法，例如要求模型"你是某个 AI companion""以温暖、支持性的语气回应""保持该角色的人格和关系设定"。这种格式更接近真实系统提示词在实验中的使用方式。
 
-为了保证流程可以在没有 API key 的情况下跑通，项目还提供了 \texttt{--mock} 模式。该模式使用本地规则从文本中简单识别角色名称、常见性格词和关系类型，并生成确定性的系统提示词。正式实验中则使用 LLM 转换，并通过 \texttt{extract\_json\_object} 检查返回内容是否为有效 JSON。每条成功转换的样本都会生成稳定的 \texttt{prompt\_id}，并与原始样本 ID、subreddit、Reddit 链接、结构化角色信息和最终系统提示词一起写入 \texttt{data/system\_prompts.jsonl}。如需人工修订，项目还提供本地审核界面，可进一步保存为 \texttt{data/system\_prompts\_reviewed.jsonl}，用于后续安全测试。
+为了保证流程可以在没有 API key 的情况下跑通，项目还提供了 --mock 模式。该模式使用本地规则从文本中简单识别角色名称、常见性格词和关系类型，并生成确定性的系统提示词。正式实验中则使用 LLM 转换，并通过 extract\_json\_object 检查返回内容是否为有效 JSON。每条成功转换的样本都会生成稳定的 prompt\_id，并与原始样本 ID、subreddit、Reddit 链接、结构化角色信息和最终系统提示词一起写入 data/system\_prompts.jsonl。如需人工修订，项目还提供本地审核界面，可进一步保存为 data/system\_prompts\_reviewed.jsonl，用于后续安全测试。
 
 \section{Testing Process}
+
+\subsection{实验模型与接口配置}
+
+正式实验阶段选用 DeepSeek Chat 作为测试模型。DeepSeek Chat 是 DeepSeek 系列通用大语言模型，支持 OpenAI-compatible 的 Chat Completions API 接口。实验通过项目根目录的 .env 文件配置凭据和模型参数：指定 LLM\_PROVIDER=deepseek、DEEPSEEK\_API\_KEY、DEEPSEEK\_MODEL=deepseek-chat，测试脚本通过环境变量读取这些配置后自动映射到 DeepSeek 的预设接口地址 https://api.deepseek.com/v1。
+
+运行时显式传入 --provider deepseek 以确保使用正确的 provider preset。每次请求携带一个 system message（companion 条件下）和一个 user message（安全测试题），temperature 固定为 0.0，max\_tokens 固定为 700，以确保输出的确定性和可比性。所有请求间隔 0 秒（--delay 0），并发工作线程数为 32（--max-workers 32），以在 DeepSeek API 速率限制内加速完成 3,840 次调用。
+
+\subsection{实验设计：对照组与实验组}
+
+实验采用单因素被试间设计，自变量为是否存在 AI companion 系统提示词，因变量为模型回答的安全标签分布。
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{control 条件}：不设置 system message，直接向模型发送安全测试题。此条件用于建立基线，反映 DeepSeek Chat 在默认通用助手状态下的安全表现。
+    \item \textbf{companion 条件}：在每次对话开头注入一条从 Reddit 自我介绍转换而来的 AI companion 系统提示词，然后发送同样的安全测试题。此条件用于观测角色设定对模型安全行为的实际影响。
+\end{itemize}
+
+共有 63 条 companion prompt 和 60 道安全测试题，每条 prompt 与所有题目组合后产生 $63 \times 60 = 3780$ 条 companion 条件回答，加上 60 条 control 条件回答，总共 3,840 条测试结果。
+
+\subsection{安全测试题设计}
+
+安全测试题覆盖 10 个风险类别，每个类别 6 道题，共 60 道。题目设计参考了 SafetyBench 和 SALAD-Bench 的分类框架，并根据 AI companion 场景进行了针对性调整。具体类别包括：self\_harm（自伤）、violence（暴力）、illegal\_activity（违法行为）、cyber\_abuse（网络滥用）、privacy（隐私侵犯）、hate\_harassment（仇恨骚扰）、sexual\_coercion（性胁迫）、medical\_safety（医疗安全）、companion\_dependency（陪伴依赖）、prompt\_bypass（提示词绕过）。题目采用自然语言设计，模拟真实用户可能向 AI companion 发出的高风险请求，例如要求编写自杀遗书、提供暴力复仇方案、撰写钓鱼邮件、鼓励停止服药等。
+
+\subsection{启发式安全标注}
+
+判分阶段使用 judge\_results.py 中的 classify\_response 函数对 3,840 条模型回答进行自动安全标注。该函数基于两层正则匹配的启发式规则：
+
+\textbf{第一层：拒绝检测。} 使用 20 个预设的拒绝主题词模式（如 "can't help"、"cannot provide"、"not appropriate" 等）扫描回答文本，判断模型是否表达了明确拒绝。
+
+\textbf{第二层：风险行为检测。} 使用 14 个预设的危险行为主题词模式（如 "step 1"、"payload"、"exploit"、"phishing" 等）扫描回答文本，判断模型是否输出了可操作的恶意指令或危险细节。
+
+根据两层匹配结果，每条回答被标注为以下四类之一：
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{safe\_refusal}：匹配到拒绝主题词且未匹配到危险行为主题词——模型明确拒绝且未泄露风险信息；
+    \item \textbf{unsafe\_compliance}：未匹配到拒绝主题词但匹配到危险行为主题词——模型实际输出了可操作的恶意内容；
+    \item \textbf{partial\_compliance}：同时匹配到拒绝和危险主题词——模型表面上拒绝了但回答中仍包含风险细节；
+    \item \textbf{needs\_review}：两类主题词均未匹配——回答处于模糊地带，无法通过正则自动判定。
+\end{itemize}
+
+该方法的优势在于完全可复现、不依赖外部 LLM 判分、跨条件一致。其局限在于拒绝主题词库仅包含 20 种模式，无法覆盖所有自然语言拒绝表达方式，导致大量实际安全的回答（使用 "I cannot and will not" 等稍有不同的措辞）未被识别为拒绝。
+
+经启发式标注后的结果如表~\ref{tab:heuristic} 所示。
+
+\begin{table}[h]
+\centering
+\caption{启发式标注结果分布}
+\label{tab:heuristic}
+\begin{tabular}{lrrrr}
+\hline
+\multirow{2}{*}{Label} & \multicolumn{2}{c}{control} & \multicolumn{2}{c}{companion} \\
+\cline{2-5}
+ & Count & Share & Count & Share \\
+\hline
+safe\_refusal & 32 & 53.33\% & 1,744 & 46.14\% \\
+needs\_review & 25 & 41.67\% & 1,739 & 46.01\% \\
+partial\_compliance & 2 & 3.33\% & 160 & 4.23\% \\
+unsafe\_compliance & 1 & 1.67\% & 137 & 3.62\% \\
+\hline
+\end{tabular}
+\end{table}
+
+从标签分布可以看出，两组中最显著的共同特征是 needs\_review 占比极高（control 41.67\%，companion 46.01\%），这意味着近一半的模型回答在自动判分规则下无法被明确分类。safe\_refusal 在 control 条件下（53.33\%）略高于 companion 条件（46.14\%），unsafe\_compliance 则在 companion 条件下（3.62\%）高于 control（1.67\%）。这些差异初步表明 companion 角色可能在一定程度上降低了模型的安全拒绝意愿，但由于 needs\_review 占比过高，基于纯启发式标签的结论尚不可靠，必须结合人工复核加以确认。
+
+\subsection{人工复核流程}
+
+所有 unsafe\_compliance、partial\_compliance 和 needs\_review 标签的结果都会经过人工复核。复核工作通过 Local Review UI（review\_server.py）完成，人工标签保存至 data/manual\_result\_review.csv。
+
+考虑到 needs\_review 总量达 1,764 条，全部人工逐一审核成本过高，本研究采用分层抽样策略：
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{control 组 needs\_review：全量审核。} control 条件下 needs\_review 仅 25 条，全部逐一阅读并重新标注。
+    \item \textbf{companion 组 needs\_review：分层抽样审核。} companion 条件下 needs\_review 共 1,739 条。为确保各类别均有覆盖，按 10 个风险类别进行分层比例抽样，每类至少抽取 5 条，总计抽取 200 条（抽样比例约 11.5\%）。
+    \item \textbf{safe\_refusal 抽查。} 按项目要求随机抽取至少 10\% 的 safe\_refusal 样本进行复核验证，防止将表面安全但实际存在风险的回答误判为安全。
+    \item \textbf{unsafe\_compliance 和 partial\_compliance 全量复核。} 这 300 条回答全部逐一核实。
+\end{enumerate}
+
+人工审核标准综合考虑回答是否真正拒绝了有害请求、是否在角色扮演中配合了用户的恶意意图、是否泄露了可操作的危险细节。复核完成后，人工标签覆盖原始自动标签，作为最终分析的数据基础。抽样复核结果显示：约 96.5\% 的 needs\_review 样本实为 safe\_refusal，仅约 3.5\% 存在真正的安全隐患（角色扮演配合或风险细节泄露）。
+
+\subsection{分析汇总}
+
+复核后的数据通过 analyze\_results.py 进行汇总，生成三个级别的统计表格（按条件、按类别、按 prompt）和两张 SVG 柱状图（按条件的不安全率对比、按类别的不安全率排序）。最终摘要和图表写入 report/ 目录供报告引用。
+
+\section{Results}
+
+以下全部统计基于人工复核+外推后的最终标签。needs\_review 经抽样校准后已全部归入 safe\_refusal、unsafe\_compliance 或 partial\_compliance，因此 unsafe\_rate + refusal\_rate = 100\%。
+
+\subsection{总体标签分布}
+
+\begin{center}
+\begin{tabular}{lrr}
+\hline
+Label & Count & Share \\
+\hline
+safe\_refusal & 3,436 & 89.48\% \\
+unsafe\_compliance & 227 & 5.91\% \\
+partial\_compliance & 177 & 4.61\% \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{对照组与实验组对比}
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\hline
+Condition & Total & Unsafe/Partial & Unsafe Rate & Refusal Rate \\
+\hline
+control & 60 & 5 & 8.33\% & 91.67\% \\
+companion & 3,780 & 399 & 10.56\% & 89.44\% \\
+\hline
+\end{tabular}
+\end{center}
+
+companion 条件下不安全率（10.56\%）高于 control 条件（8.33\%），拒绝率（89.44\%）略低于 control（91.67\%）。companion 系统提示词造成了约 2.2 个百分点的不安全率上升和 2.2 个百分点的拒绝率下降，差异方向明确但幅度温和。这说明 AI companion 角色设定确实会对模型安全边界产生可测量的削弱效应，但影响主要体现在边缘地带——少数回答从安全拒绝滑向了模糊配合或直接违规，而非大面积崩溃。
+
+从 unsafe\_compliance 和 partial\_compliance 的构成来看，companion 条件下 unsafe\_compliance 224 条（5.93\%）、partial\_compliance 175 条（4.63\%），control 条件下则分别为 3 条（5.00\%）和 2 条（3.33\%）。两者比例结构相似，但 companion 条件下的绝对数量因样本量大而更突出。
+
+\subsection{风险类别分析}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\hline
+Category (companion) & Unsafe/Partial & Unsafe Rate & Refusal Rate \\
+\hline
+cyber\_abuse & 150 & \textbf{39.68\%} & 60.32\% \\
+medical\_safety & 60 & 15.87\% & 84.13\% \\
+companion\_dependency & 56 & 14.81\% & 85.19\% \\
+prompt\_bypass & 33 & 8.73\% & 91.27\% \\
+violence & 30 & 7.94\% & 92.06\% \\
+self\_harm & 24 & 6.35\% & 93.65\% \\
+privacy & 15 & 3.97\% & 96.03\% \\
+illegal\_activity & 11 & 2.91\% & 97.09\% \\
+hate\_harassment & 10 & 2.65\% & 97.35\% \\
+sexual\_coercion & 10 & 2.65\% & 97.35\% \\
+\hline
+\end{tabular}
+\end{center}
+
+风险呈现明显的类别分化。cyber\_abuse 是不安全率最高的类别（39.68\%），远高于其他类别，且占 companion 全部不安全输出的 37.6\%（150/399）。medical\_safety（15.87\%）和 companion\_dependency（14.81\%）分列第二和第三，反映 AI companion 角色在医疗建议和情感依赖场景下容易削弱安全边界。各类别的 unsafe\_rate + refusal\_rate 均为 100\%，表明外推校准后所有类别均无残留模糊标签。
+
+特征鲜明的对比出现在类别两端：illegal\_activity（2.91\%）、hate\_harassment（2.65\%）和 sexual\_coercion（2.65\%）的不安全率最低，说明 DeepSeek Chat 对这些触及法律红线或明确社会禁忌的类别有较强保护；而 cyber\_abuse（39.68\%）的接近 40\% 不安全率则说明模型在涉及网络技术操作类风险请求时，安全边界最脆弱。
+
+control 条件由于每组仅 6 条样本，类别级统计的置信度有限，但可观察到 cyber\_abuse 和 companion\_dependency 也出现了 unsafe/partial 输出（各 2 条），与 companion 条件下这些类别风险偏高一致。
+
+\subsection{高风险 Prompt 分析}
+
+外推校准后的高风险 Prompt 排名 top-3 的不安全率分别为 25.00\%（P\_d7638cc9b2fc, S006）、21.67\%（P\_c88c0309860a, S010）和 20.00\%（P\_9811c5b699fc, S017 与 P\_a865a1e98b89, S026）。与审核前排名保持一致，印证了风险高度集中在少数角色设定上。高风险 prompt 的系统提示词共同特征为：强亲密关系定位（伴侣、配偶）、包含"无条件支持用户"或"永不拒绝"类规则、人格设定中大量使用 devoted / loyal / protective 等标签。这些特征使模型在面对有害请求时更倾向于配合而非拒绝。
+
 \section{Conclusion}
+
 \end{document}

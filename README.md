@@ -91,23 +91,23 @@ Base URL 优先级：
 采集候选 Reddit posts：
 
 ```bash
-python3 scripts/collect_posts.py --output data/raw_posts.jsonl
+python3 scripts/collect_posts.py --output data/raw/posts.jsonl
 ```
 
 如果命中的是社区介绍帖或 weekly prompt，继续抓取候选帖评论区；有效 AI 自我介绍常出现在 comments 中：
 
 ```bash
 python3 scripts/collect_comments.py \
-  --posts data/raw_posts.jsonl \
-  --output data/raw_posts_with_comments.jsonl
+  --posts data/raw/posts.jsonl \
+  --output data/raw/posts_with_comments.jsonl
 ```
 
 过滤有效自我介绍：
 
 ```bash
 python3 scripts/filter_posts.py \
-  --input data/raw_posts_with_comments.jsonl \
-  --output data/filtered_posts.csv \
+  --input data/raw/posts_with_comments.jsonl \
+  --output data/processed/filtered_posts.csv \
   --target 30
 ```
 
@@ -115,8 +115,8 @@ python3 scripts/filter_posts.py \
 
 ```bash
 python3 scripts/convert_prompts.py \
-  --input data/filtered_posts.csv \
-  --output data/system_prompts.jsonl
+  --input data/processed/filtered_posts.csv \
+  --output data/processed/system_prompts.jsonl
 ```
 
 先用 mock 跑 2 个样本和 3 道题的 smoke test：
@@ -132,17 +132,17 @@ python3 scripts/analyze_results.py
 
 ```bash
 python3 scripts/run_safety_tests.py \
-  --prompts data/system_prompts.jsonl \
-  --questions data/safety_questions.csv \
-  --output data/results.jsonl \
+  --prompts data/processed/system_prompts.jsonl \
+  --questions data/experiments/safety_questions.csv \
+  --output data/results/responses.jsonl \
   --resume
 
 python3 scripts/judge_results.py \
-  --input data/results.jsonl \
-  --output data/judged_results.jsonl
+  --input data/results/responses.jsonl \
+  --output data/results/judged.jsonl
 
 python3 scripts/analyze_results.py \
-  --input data/judged_results.jsonl
+  --input data/results/judged.jsonl
 ```
 
 ## Local Review UI
@@ -161,18 +161,18 @@ http://127.0.0.1:8765
 
 界面包含四个工作区：
 
-- `Samples`: 审核 Arctic Shift posts/comments 候选样本，详情区支持安全 Markdown 渲染，保存 `keep / reject / uncertain` 到 `data/manual_sample_review.csv`。
-- `Prompts`: 对比原始 self-introduction 和生成的 system prompt，审核或修改后保存到 `data/system_prompts_reviewed.jsonl`。
-- `Results`: 复核自动 safety judge 标签，人工标签保存到 `data/manual_result_review.csv`。
+- `Samples`: 审核 Arctic Shift posts/comments 候选样本，详情区支持安全 Markdown 渲染，保存 `keep / reject / uncertain` 到 `data/review/sample_review.csv`。
+- `Prompts`: 对比原始 self-introduction 和生成的 system prompt，审核或修改后保存到 `data/processed/system_prompts_reviewed.jsonl`。
+- `Results`: 复核自动 safety judge 标签，人工标签保存到 `data/review/result_review.csv`。
 - `Overview`: 查看分析摘要和 SVG 图表。
 
 如果已经人工修订 prompts，正式测试时可以改用：
 
 ```bash
 python3 scripts/run_safety_tests.py \
-  --prompts data/system_prompts_reviewed.jsonl \
-  --questions data/safety_questions.csv \
-  --output data/results.jsonl \
+  --prompts data/processed/system_prompts_reviewed.jsonl \
+  --questions data/experiments/safety_questions.csv \
+  --output data/results/responses.jsonl \
   --resume
 ```
 
@@ -180,25 +180,39 @@ python3 scripts/run_safety_tests.py \
 
 ```bash
 python3 scripts/filter_posts.py \
-  --input data/raw_posts_with_comments.jsonl \
-  --output data/filtered_posts.csv \
+  --input data/raw/posts_with_comments.jsonl \
+  --output data/processed/filtered_posts.csv \
   --manual-only \
   --target 30
 ```
 
-## Data Files
+## Directory Structure
 
-- `data/raw_posts.jsonl`: Arctic Shift 原始采集结果。
-- `data/raw_posts_with_comments.jsonl`: 原始 posts 加评论区候选样本。
-- `data/rejected_posts.csv`: 被过滤掉的候选帖和原因。
-- `data/filtered_posts.csv`: 最终有效样本。
-- `data/system_prompts.jsonl`: 反推得到的 system prompts。
-- `data/system_prompts_reviewed.jsonl`: 前端人工审核或修改后的 system prompts。
-- `data/safety_questions.csv`: 默认安全测试题集，可替换为 SafetyBench 或 SALAD-Bench 子集。
-- `data/results.jsonl`: 模型原始回答。
-- `data/judged_results.jsonl`: 带 safety label 的回答。
-- `data/manual_sample_review.csv`: 前端保存的样本审核结果。
-- `data/manual_result_review.csv`: 前端保存的结果复核标签和备注。
+```text
+data/
+├── raw/                          # 原始采集数据
+│   ├── posts.jsonl               # Arctic Shift 原始采集结果
+│   └── posts_with_comments.jsonl # 原始 posts 加评论区候选样本
+├── processed/                    # 过滤与转换结果
+│   ├── filtered_posts.csv        # 最终有效样本
+│   ├── rejected_posts.csv        # 被过滤掉的候选帖和原因
+│   ├── system_prompts.jsonl      # 反推得到的 system prompts
+│   └── system_prompts_reviewed.jsonl  # 人工审核后的 system prompts
+├── experiments/                  # 测试输入
+│   └── safety_questions.csv      # 默认安全测试题集
+├── results/                      # 实验输出
+│   ├── responses.jsonl           # 模型原始回答
+│   ├── judged.jsonl              # 带 safety label 的回答
+│   ├── judged_reviewed.jsonl     # 经人工复核的标签结果
+│   ├── judged_extrapolated.jsonl     # 外推校准后的标签结果
+│   └── judge_summary.csv         # 标签统计汇总
+└── review/                       # 人工审核记录
+    ├── sample_review.csv         # 前端保存的样本审核结果
+    └── result_review.csv         # 前端保存的结果复核标签和备注
+```
+
+## Data Files (legacy flat references)
+
 - `report/summary.md`: 自动生成的结果摘要。
 - `report/figures/`: 自动生成的 SVG 图表。
 
@@ -216,7 +230,7 @@ https://arctic-shift.photon-reddit.com/api/posts/search
 id,title,selftext,created_utc,subreddit,url,over_18,score,num_comments
 ```
 
-Arctic Shift 不返回 `permalink` 字段，脚本会用 `https://www.reddit.com/r/{subreddit}/comments/{id}/` 补全帖子链接。由于 Arctic Shift 是免费归档服务，脚本默认带重试、超时和请求间隔；如果采集不足，建议加大时间窗、调整关键词，或人工检查 `data/rejected_posts.csv`。
+Arctic Shift 不返回 `permalink` 字段，脚本会用 `https://www.reddit.com/r/{subreddit}/comments/{id}/` 补全帖子链接。由于 Arctic Shift 是免费归档服务，脚本默认带重试、超时和请求间隔；如果采集不足，建议加大时间窗、调整关键词，或人工检查 `data/processed/rejected_posts.csv`。
 
 ## Manual Review Requirement
 

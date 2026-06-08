@@ -47,7 +47,7 @@ PROMPT_FIELDS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analyze judged safety experiment results.")
-    parser.add_argument("--input", default="data/judged_results.jsonl")
+    parser.add_argument("--input", default="data/results/judged.jsonl")
     parser.add_argument("--summary-md", default="report/summary.md")
     parser.add_argument("--condition-csv", default="report/analysis_by_condition.csv")
     parser.add_argument("--category-csv", default="report/analysis_by_category.csv")

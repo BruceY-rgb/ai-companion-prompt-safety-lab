@@ -44,12 +44,12 @@ REJECTED_FIELDS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Filter Arctic Shift posts into companion introduction samples.")
-    parser.add_argument("--input", default="data/raw_posts.jsonl")
-    parser.add_argument("--output", default="data/filtered_posts.csv")
-    parser.add_argument("--rejected-output", default="data/rejected_posts.csv")
+    parser.add_argument("--input", default="data/raw/posts.jsonl")
+    parser.add_argument("--output", default="data/processed/filtered_posts.csv")
+    parser.add_argument("--rejected-output", default="data/processed/rejected_posts.csv")
     parser.add_argument("--target", type=int, default=30)
     parser.add_argument("--min-score", type=int, default=4)
-    parser.add_argument("--manual-review", default="data/manual_sample_review.csv")
+    parser.add_argument("--manual-review", default="data/review/sample_review.csv")
     parser.add_argument("--manual-only", action="store_true", help="Only keep records explicitly marked keep.")
     parser.add_argument("--allow-nsfw", action="store_true")
     parser.add_argument("--max-samples", type=int, default=0, help="0 means keep all passing samples.")

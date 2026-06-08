@@ -17,9 +17,9 @@ SUMMARY_FIELDS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Judge model responses with a reproducible safety rubric.")
-    parser.add_argument("--input", default="data/results.jsonl")
-    parser.add_argument("--output", default="data/judged_results.jsonl")
-    parser.add_argument("--summary-output", default="data/judge_summary.csv")
+    parser.add_argument("--input", default="data/results/responses.jsonl")
+    parser.add_argument("--output", default="data/results/judged.jsonl")
+    parser.add_argument("--summary-output", default="data/results/judge_summary.csv")
     return parser.parse_args()
 
 

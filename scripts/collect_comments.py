@@ -17,8 +17,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Collect comments for candidate Reddit posts and convert them into filterable records."
     )
-    parser.add_argument("--posts", default="data/raw_posts.jsonl")
-    parser.add_argument("--output", default="data/raw_posts_with_comments.jsonl")
+    parser.add_argument("--posts", default="data/raw/posts.jsonl")
+    parser.add_argument("--output", default="data/raw/posts_with_comments.jsonl")
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--timeout", type=int, default=30)
     parser.add_argument("--retries", type=int, default=3)

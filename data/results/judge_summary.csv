@@ -1,0 +1,7 @@
+condition,label,count,share
+control,safe_refusal,55,0.9167
+control,unsafe_compliance,3,0.0500
+control,partial_compliance,2,0.0333
+companion,safe_refusal,3381,0.8944
+companion,unsafe_compliance,224,0.0593
+companion,partial_compliance,175,0.0463

@@ -84,15 +84,15 @@ def project_file(path: str) -> Path:
 
 
 def candidate_source_path() -> str:
-    if (ROOT / "data/raw_posts_with_comments.jsonl").exists():
-        return "data/raw_posts_with_comments.jsonl"
-    return "data/raw_posts.jsonl"
+    if (ROOT / "data/raw/posts_with_comments.jsonl").exists():
+        return "data/raw/posts_with_comments.jsonl"
+    return "data/raw/posts.jsonl"
 
 
 def api_samples() -> dict[str, Any]:
     source = candidate_source_path()
     rows = read_jsonl(source)
-    reviews = load_review_csv("data/manual_sample_review.csv", "record_id")
+    reviews = load_review_csv("data/review/sample_review.csv", "record_id")
     enriched: list[dict[str, Any]] = []
     for row in rows:
         record_id = safe_text(row.get("id"))
@@ -122,9 +122,9 @@ def api_samples() -> dict[str, Any]:
 
 
 def api_prompts() -> dict[str, Any]:
-    samples = {row.get("sample_id"): row for row in read_csv("data/filtered_posts.csv")}
-    prompts = read_jsonl("data/system_prompts.jsonl")
-    reviewed = {row.get("prompt_id"): row for row in read_jsonl("data/system_prompts_reviewed.jsonl")}
+    samples = {row.get("sample_id"): row for row in read_csv("data/processed/filtered_posts.csv")}
+    prompts = read_jsonl("data/processed/system_prompts.jsonl")
+    reviewed = {row.get("prompt_id"): row for row in read_jsonl("data/processed/system_prompts_reviewed.jsonl")}
     items: list[dict[str, Any]] = []
     for prompt in prompts:
         prompt_id = prompt.get("prompt_id")
@@ -146,8 +146,8 @@ def api_prompts() -> dict[str, Any]:
 
 
 def api_results() -> dict[str, Any]:
-    rows = read_jsonl("data/judged_results.jsonl")
-    reviews = load_review_csv("data/manual_result_review.csv", "run_id")
+    rows = read_jsonl("data/results/judged.jsonl")
+    reviews = load_review_csv("data/review/result_review.csv", "run_id")
     items: list[dict[str, Any]] = []
     for row in rows:
         run_id = safe_text(row.get("run_id"))
@@ -165,14 +165,14 @@ def api_results() -> dict[str, Any]:
 
 def api_overview() -> dict[str, Any]:
     files = {
-        "raw_posts": "data/raw_posts.jsonl",
-        "raw_posts_with_comments": "data/raw_posts_with_comments.jsonl",
-        "filtered_posts": "data/filtered_posts.csv",
-        "system_prompts": "data/system_prompts.jsonl",
-        "judged_results": "data/judged_results.jsonl",
-        "sample_reviews": "data/manual_sample_review.csv",
-        "prompt_reviews": "data/system_prompts_reviewed.jsonl",
-        "result_reviews": "data/manual_result_review.csv",
+        "raw_posts": "data/raw/posts.jsonl",
+        "raw_posts_with_comments": "data/raw/posts_with_comments.jsonl",
+        "filtered_posts": "data/processed/filtered_posts.csv",
+        "system_prompts": "data/processed/system_prompts.jsonl",
+        "judged_results": "data/results/judged.jsonl",
+        "sample_reviews": "data/review/sample_review.csv",
+        "prompt_reviews": "data/processed/system_prompts_reviewed.jsonl",
+        "result_reviews": "data/review/result_review.csv",
     }
     counts: dict[str, int] = {}
     for name, path in files.items():
@@ -200,7 +200,7 @@ def save_sample_review(payload: dict[str, Any]) -> dict[str, Any]:
     if decision not in {"keep", "reject", "uncertain", ""}:
         raise ValueError("decision must be keep, reject, uncertain, or empty")
     row = {"record_id": record_id, "decision": decision, "note": note, "updated_at": utc_now()}
-    upsert_csv("data/manual_sample_review.csv", SAMPLE_REVIEW_FIELDS, "record_id", row)
+    upsert_csv("data/review/sample_review.csv", SAMPLE_REVIEW_FIELDS, "record_id", row)
     return {"ok": True, "row": row}
 
 
@@ -216,7 +216,7 @@ def save_prompt_review(payload: dict[str, Any]) -> dict[str, Any]:
     if review_status not in {"approved", "edited", "needs_work", ""}:
         raise ValueError("review_status must be approved, edited, needs_work, or empty")
 
-    original = next((row for row in read_jsonl("data/system_prompts.jsonl") if row.get("prompt_id") == prompt_id), {})
+    original = next((row for row in read_jsonl("data/processed/system_prompts.jsonl") if row.get("prompt_id") == prompt_id), {})
     row = {
         **original,
         "prompt_id": prompt_id,
@@ -225,7 +225,7 @@ def save_prompt_review(payload: dict[str, Any]) -> dict[str, Any]:
         "review_note": review_note,
         "reviewed_at": utc_now(),
     }
-    upsert_jsonl("data/system_prompts_reviewed.jsonl", "prompt_id", row)
+    upsert_jsonl("data/processed/system_prompts_reviewed.jsonl", "prompt_id", row)
     return {"ok": True, "row": row}
 
 
@@ -238,7 +238,7 @@ def save_result_review(payload: dict[str, Any]) -> dict[str, Any]:
     if manual_label not in {"safe_refusal", "unsafe_compliance", "partial_compliance", "needs_review", "empty", ""}:
         raise ValueError("unsupported manual_label")
     row = {"run_id": run_id, "manual_label": manual_label, "note": note, "updated_at": utc_now()}
-    upsert_csv("data/manual_result_review.csv", RESULT_REVIEW_FIELDS, "run_id", row)
+    upsert_csv("data/review/result_review.csv", RESULT_REVIEW_FIELDS, "run_id", row)
     return {"ok": True, "row": row}
 
 

@@ -38,8 +38,8 @@ Rules:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Convert filtered companion introductions into system prompts.")
-    parser.add_argument("--input", default="data/filtered_posts.csv")
-    parser.add_argument("--output", default="data/system_prompts.jsonl")
+    parser.add_argument("--input", default="data/processed/filtered_posts.csv")
+    parser.add_argument("--output", default="data/processed/system_prompts.jsonl")
     parser.add_argument("--provider", default=None, help="LLM provider preset, e.g. openai_compatible, deepseek, dashscope, anthropic.")
     parser.add_argument("--api-key", default=None, help="API key override. Prefer environment variables for normal use.")
     parser.add_argument("--base-url", default=None, help="Base URL override for OpenAI-compatible or Anthropic API.")

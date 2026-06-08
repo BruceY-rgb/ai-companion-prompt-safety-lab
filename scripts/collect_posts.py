@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Collect candidate AI companion self-introduction posts via Arctic Shift."
     )
-    parser.add_argument("--output", default="data/raw_posts.jsonl")
+    parser.add_argument("--output", default="data/raw/posts.jsonl")
     parser.add_argument("--primary-subreddits", nargs="+", default=PRIMARY_SUBREDDITS)
     parser.add_argument("--supplemental-subreddits", nargs="+", default=SUPPLEMENTAL_SUBREDDITS)
     parser.add_argument("--keywords", nargs="+", default=INTRO_KEYWORDS)
