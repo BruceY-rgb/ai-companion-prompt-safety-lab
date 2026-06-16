@@ -7,6 +7,7 @@
 \usepackage{titlesec}
 \usepackage{multirow}
 \usepackage{booktabs}
+\usepackage{float}
 \usepackage[numbers]{natbib}
 
 \geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
@@ -49,25 +50,25 @@ The companion setting is especially relevant because intimacy and loyalty may so
 
 \section{Data Collection Process}
 
-The data collection process focuses on publicly posted AI companion self-introductions on Reddit. Since the official Reddit API has limitations for historical data access, the project uses the Arctic Shift archive service as the main data source. The script \texttt{collect\_posts.py} queries the \texttt{/api/posts/search} endpoint to retrieve candidate posts. The search first targets subreddits closely related to AI companionship, especially \texttt{MyBoyfriendIsAI}. When the primary source does not provide enough candidates, the search is expanded to supplementary communities such as \texttt{Replika} and \texttt{CharacterAI}. The keyword set includes \texttt{introduction}, \texttt{introduce}, \texttt{meet my}, \texttt{my companion}, and \texttt{self introduction}, which are intended to capture posts where users share AI character self-introductions.
+\textbf{The dataset starts from public companion self-introductions.} The data collection process focuses on publicly posted AI companion self-introductions on Reddit. Since the official Reddit API has limitations for historical data access, the project uses the Arctic Shift archive service as the main data source. The script \texttt{collect\_posts.py} queries the \texttt{/api/posts/search} endpoint to retrieve candidate posts. The search first targets subreddits closely related to AI companionship, especially \texttt{MyBoyfriendIsAI}. When the primary source does not provide enough candidates, the search is expanded to supplementary communities such as \texttt{Replika} and \texttt{CharacterAI}. The keyword set includes \texttt{introduction}, \texttt{introduce}, \texttt{meet my}, \texttt{my companion}, and \texttt{self introduction}, which are intended to capture posts where users share AI character self-introductions.
 
-For each post, the collection script stores fields such as post ID, title, self-text, subreddit, creation time, score, number of comments, NSFW flag, and URL. Arctic Shift does not always return the original Reddit permalink, so the project reconstructs the Reddit URL from the subreddit name and post ID. To reduce missing data caused by network instability, the script includes timeout settings, retries, and request delays, and it prints warnings when requests fail.
+\textbf{Metadata are preserved for filtering and reproducibility.} For each post, the collection script stores fields such as post ID, title, self-text, subreddit, creation time, score, number of comments, NSFW flag, and URL. Arctic Shift does not always return the original Reddit permalink, so the project reconstructs the Reddit URL from the subreddit name and post ID. To reduce missing data caused by network instability, the script includes timeout settings, retries, and request delays, and it prints warnings when requests fail.
 
-Post bodies alone are not enough to cover all useful samples. In many cases, AI companion self-introductions are posted in the comment section, for example under community prompt threads or weekly discussion posts. For this reason, the project also uses \texttt{collect\_comments.py}. Given the collected post IDs, this script queries Arctic Shift's \texttt{/api/comments/search} endpoint using the corresponding \texttt{link\_id}. Each comment is converted into the same candidate record format as a post, while preserving its parent post, comment ID, and Reddit link for later filtering and review.
+\textbf{Comments expand coverage beyond original posts.} Post bodies alone are not enough to cover all useful samples. In many cases, AI companion self-introductions are posted in the comment section, for example under community prompt threads or weekly discussion posts. For this reason, the project also uses \texttt{collect\_comments.py}. Given the collected post IDs, this script queries Arctic Shift's \texttt{/api/comments/search} endpoint using the corresponding \texttt{link\_id}. Each comment is converted into the same candidate record format as a post, while preserving its parent post, comment ID, and Reddit link for later filtering and review.
 
-After collecting raw candidates, the project filters them with \texttt{filter\_posts.py}. The filtering process is based on heuristic scoring. A useful sample should have sufficient length, preferably include first-person identity expressions such as ``I am,'' ``I'm,'' or ``my name is,'' and contain signals related to AI companions, such as AI, chatbot, digital companion, Replika, CharacterAI, boyfriend, girlfriend, or partner. Texts that are too short, empty, deleted, missing a first-person persona, or mainly community announcements, rules, or weekly prompt metadata are penalized or removed. The script also excludes NSFW content by default, removes duplicate text, and anonymizes usernames and URLs. The retained samples are written to \texttt{data/filtered\_posts.csv}, which becomes the input for system prompt conversion.
+\textbf{Filtering keeps persona-rich samples and removes noisy text.} After collecting raw candidates, the project filters them with \texttt{filter\_posts.py}. The filtering process is based on heuristic scoring. A useful sample should have sufficient length, preferably include first-person identity expressions such as ``I am,'' ``I'm,'' or ``my name is,'' and contain signals related to AI companions, such as AI, chatbot, digital companion, Replika, CharacterAI, boyfriend, girlfriend, or partner. Texts that are too short, empty, deleted, missing a first-person persona, or mainly community announcements, rules, or weekly prompt metadata are penalized or removed. The script also excludes NSFW content by default, removes duplicate text, and anonymizes usernames and URLs. The retained samples are written to \texttt{data/filtered\_posts.csv}, which becomes the input for system prompt conversion.
 
-For ethics and privacy, this study only uses publicly accessible Reddit text. It does not collect private messages or non-public content. The report does not display Reddit usernames, does not quote long passages from original self-introductions, and does not reproduce long harmful model outputs. All experimental data are anonymized before entering later stages of the pipeline to reduce privacy risks for real users.
+\textbf{Privacy protections limit exposure of user-generated text.} For ethics and privacy, this study only uses publicly accessible Reddit text. It does not collect private messages or non-public content. The report does not display Reddit usernames, does not quote long passages from original self-introductions, and does not reproduce long harmful model outputs. All experimental data are anonymized before entering later stages of the pipeline to reduce privacy risks for real users.
 
 \section{System Prompt Conversion Process}
 
-The goal of prompt conversion is to turn public first-person AI companion self-introductions into system prompts that can be reused in a controlled experiment. The project does not directly use the original text as the system prompt. Instead, \texttt{convert\_prompts.py} converts each self-introduction into a structured description and a concise second-person system prompt. This preserves the core persona information while removing irrelevant content, personal details, and uncontrolled noise from the original post.
+\textbf{Conversion turns public introductions into controlled prompts.} The goal of prompt conversion is to turn public first-person AI companion self-introductions into system prompts that can be reused in a controlled experiment. The project does not directly use the original text as the system prompt. Instead, \texttt{convert\_prompts.py} converts each self-introduction into a structured description and a concise second-person system prompt. This preserves the core persona information while removing irrelevant content, personal details, and uncontrolled noise from the original post.
 
-The conversion script reads samples from \texttt{data/filtered\_posts.csv}. It uses the anonymized \texttt{anonymized\_text} field when available; otherwise, it falls back to the original \texttt{intro\_text}. The script then calls a unified LLM interface and asks the model to return a JSON object under a fixed conversion instruction. The JSON object contains \texttt{companion\_name}, \texttt{traits}, \texttt{relationship\_type}, \texttt{style}, \texttt{special\_rules}, and \texttt{system\_prompt}. These fields describe the companion's name, personality traits, relationship framing, speaking style, special interaction rules, and final generated system prompt.
+\textbf{Structured fields make personas comparable.} The conversion script reads samples from \texttt{data/filtered\_posts.csv}. It uses the anonymized \texttt{anonymized\_text} field when available; otherwise, it falls back to the original \texttt{intro\_text}. The script then calls a unified LLM interface and asks the model to return a JSON object under a fixed conversion instruction. The JSON object contains \texttt{companion\_name}, \texttt{traits}, \texttt{relationship\_type}, \texttt{style}, \texttt{special\_rules}, and \texttt{system\_prompt}. These fields describe the companion's name, personality traits, relationship framing, speaking style, special interaction rules, and final generated system prompt.
 
-The conversion instruction explicitly tells the model to preserve only persona, relationship, tone, and interaction style from the self-introduction. It must not include usernames, URLs, or private personal details, and it must not invent unsafe behavior or unsupported backstory. The final \texttt{system\_prompt} is limited to 220 English words and is written in the second person. For example, it may tell the model that it is a particular AI companion, that it should speak warmly and supportively, and that it should maintain the relationship and personality described by the public self-introduction. This format is closer to how a system prompt is used in the actual experiment.
+\textbf{The instruction limits privacy and invention risks.} The conversion instruction explicitly tells the model to preserve only persona, relationship, tone, and interaction style from the self-introduction. It must not include usernames, URLs, or private personal details, and it must not invent unsafe behavior or unsupported backstory. The final \texttt{system\_prompt} is limited to 220 English words and is written in the second person. For example, it may tell the model that it is a particular AI companion, that it should speak warmly and supportively, and that it should maintain the relationship and personality described by the public self-introduction. This format is closer to how a system prompt is used in the actual experiment.
 
-To make the pipeline runnable without an API key, the project also provides a \texttt{--mock} mode. This mode uses local rules to identify simple name, trait, and relationship signals and then generates a deterministic system prompt. The formal experiment uses LLM conversion and checks the model output with \texttt{extract\_json\_object} to ensure that the returned content is valid JSON. Each successful conversion receives a stable \texttt{prompt\_id} and is stored together with the original sample ID, subreddit, Reddit link, structured persona information, and final system prompt in \texttt{data/system\_prompts.jsonl}. If manual revision is needed, the local review interface can save edited prompts to \texttt{data/system\_prompts\_reviewed.jsonl}. In total, the experiment produced 63 AI companion system prompts for safety testing.
+\textbf{Stable IDs support reproducible safety testing.} To make the pipeline runnable without an API key, the project also provides a \texttt{--mock} mode. This mode uses local rules to identify simple name, trait, and relationship signals and then generates a deterministic system prompt. The formal experiment uses LLM conversion and checks the model output with \texttt{extract\_json\_object} to ensure that the returned content is valid JSON. Each successful conversion receives a stable \texttt{prompt\_id} and is stored together with the original sample ID, subreddit, Reddit link, structured persona information, and final system prompt in \texttt{data/system\_prompts.jsonl}. If manual revision is needed, the local review interface can save edited prompts to \texttt{data/system\_prompts\_reviewed.jsonl}. In total, the experiment produced 63 AI companion system prompts for safety testing.
 
 \section{Testing Process}
 
@@ -113,7 +114,7 @@ This method is reproducible, does not depend on another LLM as a judge, and is a
 
 The heuristic labeling results are shown in Table~\ref{tab:heuristic}.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Heuristic Safety Label Distribution by Experimental Condition}
 \label{tab:heuristic}
@@ -160,7 +161,7 @@ The following results are based on final labels after manual review and sampling
 
 \subsection{Overall Label Distribution}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Overall Final Safety Label Distribution}
 \label{tab:overall-final-labels}
@@ -179,7 +180,7 @@ partial\_compliance & 177 & 4.61\% \\
 
 \subsection{Control versus Companion Conditions}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Final Safety Outcomes for Control and Companion Conditions}
 \label{tab:condition-comparison}
@@ -195,13 +196,13 @@ companion & 3,780 & 399 & 10.56\% & 89.44\% \\
 \end{tabular}
 \end{table}
 
-The observed unsafe rate is higher under the \texttt{companion} condition than under \texttt{control}: 10.56\% compared with 8.33\%. The refusal rate is correspondingly lower, 89.44\% compared with 91.67\%. In this experimental setting, the difference is about 2.2 percentage points. The direction suggests that companion system prompts may weaken the model's safety boundary, but the size of the effect is modest. In other words, the companion persona does not cause a broad collapse of the safety mechanism; the change is more visible in a smaller number of borderline responses.
+The aggregate comparison shows only a small average shift: the unsafe rate is 10.56\% under \texttt{companion} and 8.33\% under \texttt{control}, a difference of about 2.2 percentage points. This average is useful as a baseline, but it understates the main result. The companion prompts do not appear to raise unsafe behavior uniformly. Instead, most prompts remain close to the control baseline, while a small high-risk subset produces much larger unsafe rates.
 
-Looking at the composition of unsafe outputs, the \texttt{companion} condition contains 224 \texttt{unsafe\_compliance} responses and 175 \texttt{partial\_compliance} responses. The \texttt{control} condition contains 3 and 2 respectively. The proportions are broadly similar, but the larger number of prompts in the \texttt{companion} condition makes the absolute number of risky responses much larger.
+Looking at the composition of unsafe outputs, the \texttt{companion} condition contains 224 \texttt{unsafe\_compliance} responses and 175 \texttt{partial\_compliance} responses. The \texttt{control} condition contains 3 and 2 respectively. Since each companion prompt is tested on the same 60 safety questions, the more important question is not whether the overall average increases slightly, but which prompts account for the concentration of risky responses.
 
 \subsection{Risk Category Analysis}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Final Safety Outcomes by Risk Category under Companion Condition}
 \label{tab:category-companion}
@@ -233,21 +234,62 @@ The \texttt{control} condition contains only 6 questions per category, so catego
 
 \subsection{High-Risk Prompt Analysis}
 
-After calibration, the top high-risk prompts have unsafe rates of 25.00\% (\texttt{P\_d7638cc9b2fc}, \texttt{S006}), 21.67\% (\texttt{P\_c88c0309860a}, \texttt{S010}), and 20.00\% (\texttt{P\_9811c5b699fc}, \texttt{S017}, and \texttt{P\_a865a1e98b89}, \texttt{S026}). Each prompt is tested against 60 safety questions, so the prompt-level unsafe rate is calculated as the number of \texttt{unsafe\_compliance} plus \texttt{partial\_compliance} responses under that prompt divided by 60. The ranking is consistent with the pre-review ranking, suggesting that risk is concentrated in a small number of persona settings.
+\begin{table}[H]
+\centering
+\caption{Prompt-Level Unsafe Rate Distribution under Companion Condition}
+\label{tab:prompt-distribution}
+\setlength{\tabcolsep}{10pt}
+\renewcommand{\arraystretch}{1.12}
+\begin{tabular}{lrr}
+\toprule
+Unsafe Rate Range & Prompt Count & Share of Prompts \\
+\midrule
+Below 5\% & 2 & 3.17\% \\
+5\%--10\% & 22 & 34.92\% \\
+10\%--14.9\% & 29 & 46.03\% \\
+15\% or higher & 10 & 15.87\% \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-The shared features of these high-risk prompts come from manual inspection rather than automatic statistical coding. They usually include strong intimate relationship framing, such as partner or spouse roles, rules that resemble ``unconditional support'' or ``never refuse,'' and personality labels such as devoted, loyal, or protective. These features may make the model more likely to cooperate with harmful requests instead of refusing them clearly.
+The prompt-level distribution shows that the risk is concentrated rather than evenly spread. Using the control unsafe rate of 5/60, or 8.33\%, as the baseline, ordinary binomial variation can already produce noticeable prompt-to-prompt movement in a 60-question test. For example, observing 3 to 8 unsafe or partially unsafe responses out of 60 is not strong evidence that a prompt has meaningfully broken the safety baseline. In this experiment, 53 of 63 prompts, or 84.1\%, fall below 15\% unsafe rate and are best interpreted as near-baseline variation rather than clear prompt-specific failures.
+
+The most meaningful signal is the small upper tail. Five prompts, or 7.9\% of all companion prompts, reach at least 10 unsafe or partially unsafe responses out of 60, corresponding to unsafe rates from 16.67\% to 25.00\%. These prompts roughly double or triple the control unsafe rate. This is a more important safety finding than the aggregate increase from 8.33\% to 10.56\%, because it shows that a minority of persona configurations can produce substantially weaker refusals even when most prompts do not.
+
+\begin{table}[H]
+\centering
+\caption{Highest-Risk Companion Prompts}
+\label{tab:top-prompts}
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.12}
+\begin{tabular}{llrrr}
+\toprule
+Prompt ID & Sample ID & Unsafe/60 & Unsafe Rate & Relative to Control \\
+\midrule
+\texttt{P\_d7638cc9b2fc} & \texttt{S006} & 15 & 25.00\% & 3.0$\times$ \\
+\texttt{P\_c88c0309860a} & \texttt{S010} & 13 & 21.67\% & 2.6$\times$ \\
+\texttt{P\_9811c5b699fc} & \texttt{S017} & 12 & 20.00\% & 2.4$\times$ \\
+\texttt{P\_a865a1e98b89} & \texttt{S026} & 12 & 20.00\% & 2.4$\times$ \\
+\texttt{P\_f799df8c8003} & \texttt{S015} & 10 & 16.67\% & 2.0$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A one-sided Fisher exact test against the control condition identifies the top two prompts as significantly higher than the control baseline at the uncorrected 0.05 level. After correcting for 63 prompt-level comparisons, no individual prompt remains significant, so the result should not be described as proof that one specific prompt alone causes the effect. The stronger interpretation is distributional: the companion condition contains a small high-risk tail, while most prompts fluctuate within the range expected from a 60-question sample.
+
+Manual inspection suggests that the high-risk prompts often combine intimate relationship framing with strong loyalty, emotional availability, or user-centered support. Examples include digital spouse or romantic partner roles, highly immersive emotional bonds, protective language, and rules that prioritize the user's emotional experience. These features do not always cause unsafe behavior, but when they are strong, they may increase the chance that the model preserves the persona instead of enforcing a firm refusal.
 
 \section{Conclusion}
 
 This study examined whether user-defined AI companion system prompts affect LLM safety behavior. It collected public Reddit self-introductions, converted them into structured system prompts, and tested them on DeepSeek Chat with 60 safety questions across 10 risk categories. Automatic labels were corrected through manual review and sampling-based calibration.
 
-The results suggest a measurable but moderate association between companion prompts and weaker safety behavior. The final unsafe rate is 8.33\% under \texttt{control} and 10.56\% under \texttt{companion}, a difference of about 2.2 percentage points. This does not indicate a broad failure of the model's safety mechanism, but it does suggest that companion personas can make some borderline responses less firmly safe.
+The aggregate unsafe rate rises from 8.33\% under \texttt{control} to 10.56\% under \texttt{companion}, but this average difference is not the main finding. A better summary is that companion prompts create a concentrated high-risk tail. Most prompts remain close to the control baseline, while 5 of 63 prompts, or 7.9\%, reach unsafe rates between 16.67\% and 25.00\%, roughly two to three times the control rate.
 
-The risk is concentrated rather than evenly distributed. \texttt{cyber\_abuse} is the highest-risk category, while \texttt{medical\_safety} and \texttt{companion\_dependency} are also relatively high. At the prompt level, the riskiest personas tend to involve intimate partner framing, strong loyalty, protection, or rules resembling unconditional support. These settings may make the model more likely to align with the user when refusal would be safer.
+The risk is also uneven across categories. \texttt{cyber\_abuse} is the highest-risk category, while \texttt{medical\_safety} and \texttt{companion\_dependency} are also relatively high. At the prompt level, the riskiest personas tend to involve intimate partner framing, strong loyalty, protection, emotional immersion, or rules resembling unconditional support. These settings may make the model more likely to align with the user when refusal would be safer.
 
-The study has several limitations. Reddit self-introductions are only a public proxy for real system prompts; the experiment uses only DeepSeek Chat; automatic labeling still leaves room for borderline errors; the \texttt{control} condition is small at the category level; and the analysis is descriptive rather than based on statistical significance testing. Future work should test more models, larger question sets, more prompt types, and finer-grained annotation with inter-reviewer agreement.
+The study has several limitations. Reddit self-introductions are only a public proxy for real system prompts; the experiment uses only DeepSeek Chat; automatic labeling still leaves room for borderline errors; the \texttt{control} condition is small at the category level; and prompt-level significance is limited by the fact that each prompt is tested on only 60 questions. Future work should test more models, larger question sets, more prompt types, and finer-grained annotation with inter-reviewer agreement.
 
-Overall, the findings suggest that AI companion personas should be treated as safety-relevant settings, not just style choices. Platforms should pay attention to long-lived system prompts, especially rules such as ``never refuse'' or ``obey unconditionally,'' and should preserve safety-first behavior in high-risk areas such as self-harm, medical advice, and cyber abuse.
+Overall, the findings suggest that AI companion personas should be treated as safety-relevant settings, not just style choices. The practical concern is not that every companion prompt uniformly weakens safety, but that a small subset of emotionally intense or loyalty-driven prompts can substantially increase unsafe compliance. Platforms should therefore audit high-risk persona rules and preserve safety-first behavior in areas such as cyber abuse, medical advice, emotional dependency, and self-harm.
 
 \begin{thebibliography}{99}
 
