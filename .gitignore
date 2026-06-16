@@ -17,7 +17,7 @@ Project 6-AI Companion-Tutor-*.docx
 # data/results/judge_summary.csv
 report/summary.md
 report/summary_reviewed.md
-report/analysis_by_condition.csv
-report/analysis_by_category.csv
-report/analysis_by_prompt.csv
-report/figures/*.svg
+#report/analysis_by_condition.csv
+#report/analysis_by_category.csv
+#report/analysis_by_prompt.csv
+#report/figures/*.svg
